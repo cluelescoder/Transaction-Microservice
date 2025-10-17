@@ -13,6 +13,7 @@ spec:
       labels:
         app: transaction-microservice
     spec:
+      serviceAccountName: transaction-microservice-sa
       containers:
         - name: app-container
           image: __IMAGE_PATH__
