@@ -1,0 +1,101 @@
+<configuration>
+    <!-- Console Appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>timestamp</fieldName>
+                    <timeZone>UTC</timeZone>
+                </timestamp>
+                <logLevel>
+                    <fieldName>level</fieldName>
+                </logLevel>
+                <loggerName>
+                    <fieldName>logger</fieldName>
+                </loggerName>
+                <threadName>
+                    <fieldName>thread</fieldName>
+                </threadName>
+                <message>
+                    <fieldName>message</fieldName>
+                </message>
+                <mdc>
+                    <key>traceId</key>
+                </mdc>
+            </providers>
+        </encoder>
+    </appender>
+    <!-- Application Logs Appender -->
+    <appender name="APPLICATION_LOGS" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/application-logs.json</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/application-logs-%d{yyyy-MM-dd}.json</fileNamePattern>
+            <maxHistory>5</maxHistory>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>timestamp</fieldName>
+                    <timeZone>UTC</timeZone>
+                </timestamp>
+                <logLevel>
+                    <fieldName>level</fieldName>
+                </logLevel>
+                <loggerName>
+                    <fieldName>logger</fieldName>
+                </loggerName>
+                <threadName>
+                    <fieldName>thread</fieldName>
+                </threadName>
+                <message>
+                    <fieldName>message</fieldName>
+                </message>
+                <mdc>
+                    <key>traceId</key>
+                </mdc>
+            </providers>
+        </encoder>
+    </appender>
+    <!-- Error Logs Appender -->
+    <appender name="ERROR_LOGS" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/error-logs.json</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/error-logs-%d{yyyy-MM-dd}.json</fileNamePattern>
+            <maxHistory>5</maxHistory>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>timestamp</fieldName>
+                    <timeZone>UTC</timeZone>
+                </timestamp>
+                <logLevel>
+                    <fieldName>level</fieldName>
+                </logLevel>
+                <loggerName>
+                    <fieldName>logger</fieldName>
+                </loggerName>
+                <threadName>
+                    <fieldName>thread</fieldName>
+                </threadName>
+                <message>
+                    <fieldName>message</fieldName>
+                </message>
+                <mdc>
+                    <key>traceId</key>
+                </mdc>
+            </providers>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+    </appender>
+    <!-- Root Logger -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="APPLICATION_LOGS" />
+        <appender-ref ref="ERROR_LOGS" />
+    </root>
+</configuration>

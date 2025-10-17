@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transaction-microservice
+  namespace: application-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transaction-microservice
+  template:
+    metadata:
+      labels:
+        app: transaction-microservice
+    spec:
+      containers:
+        - name: app-container
+          image: __IMAGE_PATH__
+          ports:
+            - containerPort: 8084
+          env:
+            - name: DB_HOST
+              value: "10.162.32.3"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: lloyds-banking-service
+                  key: db-user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lloyds-banking-service
+                  key: db-password
+            - name: DB_NAME
+              value: "lloyds-bank"

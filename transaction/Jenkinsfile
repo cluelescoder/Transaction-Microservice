@@ -1,0 +1,200 @@
+pipeline {
+    options {
+        buildDiscarder(
+            logRotator(
+                numToKeepStr: '10',
+                daysToKeepStr: '7',
+                artifactDaysToKeepStr: '7',
+                artifactNumToKeepStr: '10'
+            )
+        )
+    }
+
+    agent {
+        kubernetes {
+            label "agent-${UUID.randomUUID().toString()}"
+            yamlFile "transaction/pipeline/agent.yaml"
+        }
+    }
+
+    environment {
+        GKE_CLUSTER_NAME = 'lloydsbank-cluster'
+        GKE_PROJECT = 'model-creek-473713-c9'
+        GKE_ZONE = 'asia-south1-a'
+        DOCKER_REGISTRY = 'asia-south1-docker.pkg.dev/model-creek-473713-c9/lloyds-repo'
+        DOCKER_IMAGE_NAME = 'transaction-final-demo'
+        IMAGE_VERSION = "v${BUILD_NUMBER}"
+        FULL_IMAGE_PATH = "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${IMAGE_VERSION}"
+    }
+
+    stages {
+        stage('Clone Repository') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Compile Code and Run Tests') {
+            steps {
+                container('maven-container') {
+                    script {
+                        dir('transaction') {
+                            sh 'mvn clean install'
+                        }
+                    }
+                }
+            }
+            post {
+                    always {
+                        archiveArtifacts artifacts: 'transaction/target/site/jacoco/index.html', fingerprint: true
+                        publishHTML(target: [
+                            allowMissing: false,
+                            alwaysLinkToLastBuild: true,
+                            keepAll: true,
+                            reportDir: 'transaction/target/site/jacoco',
+                            reportFiles: 'index.html',
+                            reportName: 'JaCoCo Code Coverage Report'
+                        ])
+
+                        archiveArtifacts artifacts: 'transaction/target/site/serenity/index.html', fingerprint: true
+                        publishHTML(target: [
+                            allowMissing: false,
+                            alwaysLinkToLastBuild: true,
+                            keepAll: true,
+                            reportDir: 'transaction/target/site/serenity',
+                            reportFiles: 'index.html',
+                            reportName: 'BDD Test Report',
+                            reportTitles: 'BDD Cucumber Test Results'
+                        ])
+                    }
+                }
+        }
+
+//         stage('SonarQube Analysis') {
+//             steps {
+//                 container('maven-container') {
+//                     withSonarQubeEnv('jenkins-sonar') {
+//                         script {
+//                             dir('transaction') {
+//                                 sh """
+//                                      mvn sonar:sonar \
+//                                     -Dsonar.projectKey=Transaction-Microservice \
+//                                     -Dsonar.projectName="Transaction-Microservice" \
+//                                     -Dsonar.host.url=${SONARQUBE_URL} \
+//                                     -Dsonar.login=${SONARQUBE_TOKEN}
+//                                 """
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//
+//         stage('Quality Gate') {
+//             steps {
+//                 container('maven-container') {
+//                     script {
+//                         timeout(time: 2, unit: 'MINUTES') {
+//                             def qualityGate = waitForQualityGate()
+//                             if (qualityGate.status != 'OK') {
+//                                 echo "SonarQube Quality Gate failed: ${qualityGate.status}"
+//                                 def criticalIssues = sh(script: "curl -s -u ${SONARQUBE_TOKEN}: ${SONARQUBE_URL}/api/issues/search?severities=CRITICAL | jq '.total'", returnStdout: true).trim()
+//                                 def highIssues = sh(script: "curl -s -u ${SONARQUBE_TOKEN}: ${SONARQUBE_URL}/api/issues/search?severities=HIGH | jq '.total'", returnStdout: true).trim()
+//                             if (criticalIssues.toInteger() > 0 || highIssues.toInteger() > 0) {
+//                             error "Pipeline aborted due to Critical (${criticalIssues}) or High (${highIssues}) vulnerabilities detected in SonarQube!"
+//                             }
+//                             error "Pipeline aborted due to Quality Gate failure: ${qualityGate.status}"
+//                        }
+//                     }
+//                 }
+//             }
+//         }
+//     }
+
+    stage('Build Docker Image') {
+                steps {
+                    container('gcloud-docker') {
+                        script {
+                            sh "docker build -t ${FULL_IMAGE_PATH} ./transaction"
+                        }
+                    }
+                }
+            }
+
+//             stage('Run Trivy Scan') {
+//                 steps {
+//                     container('gcloud-docker') {
+//                         script {
+//                             echo "Running Trivy Scan on the Docker image..."
+//                             sh '''
+//                                 set -e
+//                                 apt-get update && apt-get install -y curl
+//                                 TRIVY_INSTALL_URL="https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh"
+//                                 TRIVY_BINARY_PATH="./bin"
+//                                 curl -sfL  ${TRIVY_INSTALL_URL} | sh -s -- -b ${TRIVY_BINARY_PATH}
+//                                 export PATH=$PATH:$(pwd)/bin
+//                                 if ! trivy --version; then
+//                                    echo "Trivy installation failed, exiting..."
+//                                    exit 1
+//                                 fi
+//                                 mkdir -p trivy-reports
+//                                 curl -O ${TRIVY_TEMPLATE_URL}
+//                                 if [ -f html.tpl ]; then
+//                                     mv html.tpl trivy-reports/custom-html.tpl
+//                                 else
+//                                     echo "Failed to download Trivy HTML template, exiting..."
+//                                     exit 1
+//                                 fi
+//                                 trivy image --severity HIGH,CRITICAL --format template --template "@trivy-reports/custom-html.tpl" \
+//                                 -o trivy-reports/trivy-scan-report.html ${FULL_IMAGE_PATH}
+//                             '''
+//                         }
+//                     }
+//                 }
+//                 post {
+//                     always {
+//                         echo "Publishing Trivy Scan Report..."
+//                         publishHTML([
+//                             allowMissing: false,
+//                             alwaysLinkToLastBuild: true,
+//                             keepAll: true,
+//                             reportDir: 'trivy-reports',
+//                             reportFiles: 'trivy-scan-report.html',
+//                             reportName: 'Trivy Vulnerability Report'
+//                         ])
+//                     }
+//                 }
+//             }
+
+            stage('Login and Push Image to Container Registry') {
+                steps {
+                    withCredentials([file(credentialsId: 'jenkins-gcp-sa', variable: 'GCLOUD_SERVICE_KEY')]) {
+                        container('gcloud-docker') {
+                            script {
+                                sh 'gcloud auth activate-service-account --key-file=$GCLOUD_SERVICE_KEY'
+                                sh 'gcloud auth configure-docker asia-south1-docker.pkg.dev'
+                                sh "docker push ${FULL_IMAGE_PATH}"
+                            }
+                        }
+                    }
+                }
+            }
+
+            stage('Deploy to GKE') {
+                steps {
+                    container('gcloud-docker') {
+                        script {
+                            sh "gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --zone ${GKE_ZONE} --project ${GKE_PROJECT}"
+                            sh '''
+                                sed -i "s|__IMAGE_PATH__|${FULL_IMAGE_PATH}|" transaction/kubernetes/deployment.yaml
+                            '''
+                            sh 'kubectl apply -f transaction/kubernetes/deployment.yaml'
+                            sh 'kubectl apply -f transaction/kubernetes/service.yaml'
+                        }
+                    }
+                }
+            }
+    }
+}
+
+

@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: backend-build
+spec:
+  containers:
+    - name: gcloud-docker
+      image: 'google/cloud-sdk'  # gcloud SDK base image
+      command: [ "sleep" ]
+      args: [ "infinity" ]
+      env:
+        - name: DOCKER_HOST
+          value: "unix:///var/run/docker.sock"  # Docker socket
+      volumeMounts:
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+      lifecycle:
+        postStart:
+          exec:
+            command:
+              - "/bin/sh"
+              - "-c"
+              - |
+                apt-get update && \
+                apt-get install -y docker.io kubectl
+
+    - name: maven-container
+      image: 'maven:3.8.6-eclipse-temurin-17'  # Maven base image
+      command: [ "sleep" ]
+      args: [ "infinity" ]
+
+    - name: sonarqube-scanner
+      image: 'sonarsource/sonar-scanner-cli'
+      command: [ "sleep" ]
+      args: [ "infinity" ]
+
+  volumes:
+    - name: docker-socket
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket
