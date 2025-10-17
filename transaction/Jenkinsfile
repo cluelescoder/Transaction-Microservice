@@ -18,7 +18,7 @@ pipeline {
     }
 
     environment {
-        GKE_CLUSTER_NAME = 'lloydsbank-cluster'
+        GKE_CLUSTER_NAME = 'lloyds-cluster'
         GKE_PROJECT = 'model-creek-473713-c9'
         GKE_ZONE = 'asia-south1-a'
         DOCKER_REGISTRY = 'asia-south1-docker.pkg.dev/model-creek-473713-c9/lloyds-repo'
